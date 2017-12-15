@@ -1,252 +1,155 @@
+import Draw from './../utils/Draw'
+import Utils from './../../shared/Utils'
+import Events from './../../shared/Events'
 
 import Phaser from 'phaser'
-import Food from '../sprites/Food'
-import Player from '../objects/Player'
-import {setResponsiveWidth} from '../utils'
 import io from 'socket.io-client'
 
+import User from '../objects/User'
+
 export default class extends Phaser.State {
-  init () {
-    this.foodGroup;
-    this.players;
-  }
 
-  preload () {
-    console.log('preload game')
-  }
+	init () {
+		this.users;
+		this.gameUID;
+	}
+ 
+	preload () {
+		console.log('preload game')
+	}
 
-  create () {
-    this.game.physics.startSystem(Phaser.Physics.ARCADE);
-    this.game.world.setBounds(0, 0, 4600, 4600);
-    this.players = [];
+	create () {
+		// create new browser session and UUID if none exists
+		this.gameUID = (!localStorage.getItem('gameUID')) ? Utils.generateUID() : localStorage.getItem('gameUID');
+		localStorage.setItem('gameUID', this.gameUID)
 
-    // Connect to socket
-    this.socket = io('http://' + window.location.hostname + ':8080');
-    
-    // Init me and make the camera follow me
-    this.player = new Player({
-      index: ["me"],
-      game: this.game,
-      x: this.game.world.centerX,
-      y: this.game.world.centerY,
-      numSnakeSections: 30,
-      socket: this.socket,
-      assets: {
-        head: 'head',
-        body: 'body'
-      }
-    })
-    this.game.camera.follow(this.player.snakeHead);
+		this.background = Draw.randomBackground(game, this.game.width, this.game.height);
 
-    // Add foodGroup and generate a few randoms ones
-    this.foodGroup = this.game.add.physicsGroup();
+		this.game.physics.startSystem(Phaser.Physics.ARCADE);
+		this.game.world.setBounds(0, 0, this.game.width, this.game.height);
+		this.users = [];
 
-    // set the sprite width to 30% of the game width
-    //setResponsiveWidth(this.snakeHead, 30, this.game.world)
-    //this.game.add.existing(this.player.snakeHead)
+		this.socket = io('http://' + window.location.hostname + ':8000');
 
-    // Socket connection successful
-    this.socket.on('connect', this._onSocketConnected.bind(this))
+		// this.game.camera.follow(this.user.head);
+	
+		this.socket.on(Events.CLIENT_CONNECT, this._onClientConnect.bind(this))
 
-    // Socket disconnection
-    this.socket.on('disconnect', this._onSocketDisconnect)
+		this.socket.on(Events.NEW_CLIENT_USER, this._onNewClientUser.bind(this))
 
-    // New player message received
-    this.socket.on('food group', this._onFoodGroup.bind(this))
+		this.socket.on(Events.NEW_USER, this._onNewUser.bind(this))
 
-    // New player message received
-    this.socket.on('new player', this._onNewPlayer.bind(this))
+		this.socket.on(Events.MOVE_USER, this._onMoveUser.bind(this))
 
-    // Move player
-    this.socket.on('move player', this._onMovePlayer.bind(this))
+		this.socket.on(Events.REMOVE_USER, this._onRemoveUser.bind(this))
 
-    // Grow player
-    this.socket.on('grow player', this._onGrowPlayer.bind(this))
+		this.socket.on(Events.CLIENT_DISCONNECT, this._onClientDisconnect)
+	}
 
-    // Rotate player
-    this.socket.on('rotate player', this._onRotatePlayer.bind(this))
+	update () {
+		if (this.user) this.user.update(true);
 
-    // Player removed message received
-    this.socket.on('remove player', this._onRemovePlayer.bind(this))
-  }
+		for (var i = 0; i < this.users.length; i++) {
+			if (this.users[i].alive) {
+				this.users[i].update()
+				this.game.physics.arcade.collide(user, this.users[i].user, this._handleUserColision)
+			}
+		}
+	}
 
-  update () {
-    if (this.game.physics.arcade.collide(this.player.snakeHead, this.foodGroup, this._handleFoodColision, this._processHandler, this)) {
-      console.log('nom nom nom');
-    }
+	render () {
+		/*if (__DEV__) {
+			this.game.debug.spriteInfo(this.user.head, 32, 32)
+		}*/
+	}
 
-    // Update player
-    this.player.update(true);
+	_onClientConnect () {
+		console.log('_onClientConnect')
 
-    // Update other players
-    for (var i = 0; i < this.players.length; i++) {
-      if (this.players[i].alive) {
-        this.players[i].update()
-        this.game.physics.arcade.collide(player, this.players[i].player, this._handlePlayerColision)
-      }
-    }
-  }
+		// generate new user (in case one doesn't already exist)
+		let userData = {
+			id: this.gameUID,
+			x: this.game.world.centerX,
+			y: this.game.world.centerY,
+			color: Utils.randomHex()
+		}
+		
+		this.socket.emit(Events.REGISTER_SESSION, userData)
+	}
 
-  render () {
-    /*if (__DEV__) {
-      this.game.debug.spriteInfo(this.player.snakeHead, 32, 32)
-    }*/
-  }
+	_onNewClientUser(data) {
 
-  /******************** 
-  ** Private helpers **
-  ********************/
+		let duplicate = this.users.find(function(user){
+			return user.id == data.id;
+		})
+		if (duplicate) return
+		
+		this.user = new User({ ...data, game: this.game, socket: this.socket })
+		this.users.push(this.user)
 
-  _handleFoodColision (head, food) {
-    console.log('_handleColision food', food);
+		this.socket.emit(Events.NEW_USER, data)
+	}
 
-    this.player.grow(food)
-    food.kill()
-  }
+	_onNewUser (data) {
 
-  _handlePlayerColision (me, them) {
-    console.log('_handlePlayerColision', me, them)
-  }
+		let duplicate = this.users.find(function(user){
+			return user.id == data.id;
+		})
+		if (duplicate) return
 
-  _processHandler (head, food) { 
-    console.log('_processHandler', arguments);
+		this.users.push(new User({
+			id: data.id,
+			x: data.x,
+			y: data.y,
+			color: data.color,
+			game: this.game,
+			socket: this.socket
+		}))
+	}
 
-    return true;
-  }
+	_onMoveUser (data) {
+		// console.log('_onMoveUser', data) + '\n';
 
-  /*******************
-  ** Event handlers **
-  *******************/
+		let user = this.users.find(function(user){
+			return user.id == data.id;
+		})
 
-  _onSocketConnected () {
-    console.log('_onSocketConnected Connected to socket server')
+		if (!user) {
+			console.log('user not found: ', data.id)
+			return
+		}
 
-    // Reset enemies on reconnect
-    this.players.forEach(function(player) {
-      player.kill()
-    })
-    this.players = [];
+		user.moveUser(data.x, data.y)
+	}
 
-    // Send local player data to the game server
-    this.socket.emit('new player', { x: this.player.snakeHead.x, y: this.player.snakeHead.y, numSnakeSections: this.numSnakeSections, angle: this.player.snakeHead.body.angularVelocity })
-  }
+	_onRemoveUser (data) {
+		console.log('_onRemoveUser', data);
+		
+		let user = this.users.find(function(user){
+			return user.id == data.id;
+		})
+	
+		if (!user) {
+			console.log('user not found: ', data.id)
+			return
+		}
+		
+		this.users.splice(this.users.indexOf(user), 1)
+	}
 
-  _onFoodGroup (data) {
-    var foodGroup = this.foodGroup;
-    var game = this.game;
+	_handleUserColision (me, them) {
+		console.log('_handleUserColision', me, them)
+	}
 
-    data.forEach(function(foodItem) {
-      foodGroup.add(new Food({
-        game: game,
-        x: foodItem.id.x, 
-        y: foodItem.id.y, 
-        color: foodItem.id.color,
-        size: foodItem.id.size,
-        id: foodItem.id.id
-      }))
-    })
+	_onClientDisconnect (data) {
+		let user = this.users.find(function(user){
+			return user.id == data.id;
+		})
+		this.users.splice(this.users.indexOf(user), 1)
 
-    console.log('foodGroup', foodGroup);
-  }
-
-  _onNewPlayer (data) {
-    console.log('New player connected:', data)
-
-    // Avoid possible duplicate players
-    var duplicate = this.players.find(function(player){
-      return player.id == data.id;
-    })
-    if (duplicate) {
-      console.log('Duplicate player!')
-      return
-    }
-
-    // Add new player to the remote players array
-    this.players.push(new Player({
-      index: data.id,
-      game: this.game,
-      x: this.game.world.centerX,
-      y: this.game.world.centerY,
-      numSnakeSections: data.numSnakeSections,
-      socket: this.socket,
-      assets: {
-        head: 'headE',
-        body: 'bodyE'
-      }
-    }))
-  }
-
-  _onMovePlayer (data) {
-    //console.log('_onMovePlayer', data, this.players);
-    var player = this.players.find(function(player){
-      return player.id == data.id;
-    })
-
-    // Player not found
-    if (!player) {
-      console.log('Player not found: ', data.id)
-      return
-    }
-
-    // Update player position
-    player.movePlayer(data.x, data.y)
-  }
-
-  _onRotatePlayer (data) {
-    //console.log('_onRotatePlayer', data);
-    var player = this.players.find(function(player){
-      return player.id == data.id;
-    })
-
-    // Player not found
-    if (!player) {
-      console.log('Player not found: ', data.id)
-      return
-    }
-
-    // Update player position
-    player.rotateHead(data.angle)
-  }
-
-  _onGrowPlayer (data) {
-    console.log('_onGrowPlayer', data);
-    var player = this.players.find(function(player){
-      return player.id == data.id;
-    })
-
-    // Player not found
-    if (!player) {
-      console.log('Player not found: ', data.id)
-      return
-    }
-
-    // Update player position
-    player.grow(data.size, true)
-
-    // Remove food item
-    var food = this.foodGroup.children.find(function(foodItem) {
-      return foodItem.id == data.foodId;
-    })
-
-    if(food)
-      this.foodGroup.remove(food);
-  }
-
-  _onRemovePlayer (data) {
-    console.log('_onRemovePlayer', data);
-    var player = this.players.find(function(player){
-      return player.id == data.id;
-    })
-
-    // Player not found
-    if (!player) {
-      console.log('Player not found: ', data.id)
-      return
-    }
-
-    //player.player.kill()
-
-    // Remove player from array
-    this.players.splice(this.players.indexOf(player), 1)
-  }
+		// user.disconnected = true;
+		// setTimeout(function () {
+		// 		if (user.disconnected) user.delete();
+		// }, 1000);
+	}
 }

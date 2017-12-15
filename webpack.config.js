@@ -24,7 +24,7 @@ module.exports = {
   watch: true,
   plugins: [
     new HtmlWebpackPlugin({
-      template: 'src/index.tpl.html',
+      template: 'src/index.html',
       inject: 'body',
       filename: 'index.html'
     }),
@@ -37,7 +37,19 @@ module.exports = {
   ],
   module: {
     loaders: [
-      { test: /\.js$/, loader: 'babel', include: path.join(__dirname, 'src') },
+      { 
+        test: /\.js$/, 
+        loader: 'eslint', 
+        exclude: /node_modules/,
+        include: path.resolve(__dirname, 'src'),
+        parserOptions: { sourceType: 'module' }
+      },
+      { 
+        test: /\.js$/, 
+        loader: 'babel', 
+        include: path.join(__dirname, 'src'), 
+        query: { presets: ['es2015', 'stage-2'] } 
+      },
       { test: /pixi\.js/, loader: 'expose?PIXI' },
       { test: /phaser-split\.js$/, loader: 'expose?Phaser' },
       { test: /p2\.js/, loader: 'expose?p2' },
@@ -53,5 +65,9 @@ module.exports = {
       'pixi': pixi,
       'p2': p2
     }
+  },
+  eslint: {
+    failOnWarning: false,
+    failOnError: true
   }
 }
