@@ -33,17 +33,17 @@ export default class extends Phaser.State {
 
 		// this.game.camera.follow(this.user.head);
 	
-		this.socket.on(Events.CLIENT_CONNECT, this._onClientConnect.bind(this))
+		this.socket.on(Events.CLIENT_CONNECT, e => this._onClientConnect(e))
 
-		this.socket.on(Events.NEW_CLIENT_USER, this._onNewClientUser.bind(this))
+		this.socket.on(Events.NEW_CLIENT_USER, e => this._onNewClientUser(e))
 
-		this.socket.on(Events.NEW_USER, this._onNewUser.bind(this))
+		this.socket.on(Events.NEW_USER, e => this._onNewUser(e))
 
-		this.socket.on(Events.MOVE_USER, this._onMoveUser.bind(this))
+		this.socket.on(Events.MOVE_USER, e => this._onMoveUser(e))
 
-		this.socket.on(Events.REMOVE_USER, this._onRemoveUser.bind(this))
+		this.socket.on(Events.REMOVE_USER, e => this._onRemoveUser(e))
 
-		this.socket.on(Events.CLIENT_DISCONNECT, this._onClientDisconnect)
+		this.socket.on(Events.CLIENT_DISCONNECT, e => this._onClientDisconnect(e))
 	}
 
 	update () {
