@@ -1,6 +1,6 @@
 module.exports = {
 
-	circle: (game, radius, fillColor, lineColor) => {
+	circle(game, radius, fillColor, lineColor) {
 		
 		var graphics = game.add.graphics(0, 0);
 		graphics.beginFill(fillColor, 0.5);
@@ -10,12 +10,12 @@ module.exports = {
 		return graphics;
 	},
 
-	randomBackground(game, w, h) {
+	randomBackground(game, w, h, n) {
 
 		var graphics = game.add.graphics(0, 0);
 		graphics.lineStyle(1, 0xFFFFFF, 1);
 
-		for (var i = 0; i < 300; i++) {
+		for (var i = 0; i < n; i++) {
 			graphics.drawCircle(Math.random()*w, Math.random()*h, 1);
 		}
 

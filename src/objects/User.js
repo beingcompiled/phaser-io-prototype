@@ -26,7 +26,7 @@ export default class {
 		
 		this.head.body.collideWorldBounds = true;
 
-		this.head.x = x;
+		this.head.x = x;``
 		this.head.y = y;
 	}
 

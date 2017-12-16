@@ -23,7 +23,7 @@ export default class extends Phaser.State {
 		this.gameUID = (!localStorage.getItem('gameUID')) ? Utils.generateUID() : localStorage.getItem('gameUID');
 		localStorage.setItem('gameUID', this.gameUID)
 
-		this.background = Draw.randomBackground(game, this.game.width, this.game.height);
+		this.background = Draw.randomBackground(game, this.game.width, this.game.height, 100);
 
 		this.game.physics.startSystem(Phaser.Physics.ARCADE);
 		this.game.world.setBounds(0, 0, this.game.width, this.game.height);
