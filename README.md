@@ -1,4 +1,8 @@
-npm install
-npm start
+- work in progress
 
-Based on: https://github.com/lean/phaser-es6-webpack.git
+---
+
+- npm install
+- npm start
+
+based on: https://github.com/lean/phaser-es6-webpack.git
